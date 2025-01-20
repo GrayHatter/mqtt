@@ -148,6 +148,39 @@ pub const Properties = enum(u8) {
     // [MQTT-3.3.2-20].
 };
 
+pub fn parse(publ: []const u8, flags: Packet.ControlType.Flags) !Publish {
+    var fbs = std.io.fixedBufferStream(publ);
+    var r = fbs.reader();
+    log.err("{s} <> {any}", .{ publ, publ });
+    const slen = try r.readInt(u16, .big);
+    const topic = publ[2..][0..slen];
+    try fbs.seekBy(slen);
+    var pktid: ?u16 = null;
+    switch (flags.qos) {
+        .at_most_once => {
+            log.err("     expecting {s}", .{"nop"});
+        },
+        .at_least_once => {
+            log.err("     expecting {s}", .{"PUBACK"});
+            pktid = try r.readInt(u16, .big);
+            //try Publish.Ack.send(pktid.?, .success, &any);
+        },
+        .exactly_once => {
+            log.err("     expecting {s}", .{"PUBREC"});
+        },
+        .invalid => @panic("unreachable"),
+    }
+    const props = publ[2 + slen .. 2 + slen]; // TODO implement
+    try fbs.seekBy(1); // short VLI
+
+    return .{
+        .topic_name = topic,
+        .packet_ident = pktid,
+        .properties = props,
+        .payload = publ[fbs.pos..],
+    };
+}
+
 pub fn send(p: Publish, any: *AnyWriter) !void {
     var buffer: [0x4000]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buffer);
@@ -186,6 +219,11 @@ pub const Ack = struct {
         _,
     };
 
+    pub fn parse(r: *AnyReader) !Ack {
+        _ = r;
+        @panic("not implemented");
+    }
+
     pub fn send(pkt_id: u16, code: Reason, any: *AnyWriter) !void {
         var buffer: [0x4000]u8 = undefined;
         var fbs = std.io.fixedBufferStream(&buffer);
@@ -205,3 +243,4 @@ const Packet = @import("Packet.zig");
 const std = @import("std");
 const log = std.log.scoped(.mqtt);
 const AnyWriter = std.io.AnyWriter;
+const AnyReader = std.io.AnyReader;

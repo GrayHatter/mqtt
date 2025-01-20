@@ -21,6 +21,11 @@ pub const KeepAlive = packed struct(u16) {
     seconds: u16 = 600,
 };
 
+pub fn parse(r: *AnyReader) !Connect {
+    _ = r;
+    @panic("not implemented");
+}
+
 pub fn send(c: Connect, any: *AnyWriter) !void {
     const props = [_]u8{ 0x11, 0x00, 0x00, 0x00, 0x03 };
     const client_id: []const u8 = c.client_id orelse
@@ -286,6 +291,12 @@ pub const Ack = struct {
         // Authentication Data more than once. Refer to section 4.12 for more
         // information about extended authentication.
     };
+
+    pub fn parse(pkt: []const u8) !Ack {
+        log.err("Connect Ack not implemented", .{});
+        log.err("Connect Ack ({}) {any}", .{ pkt.len, pkt });
+        return .{};
+    }
 };
 
 const Packet = @import("Packet.zig");
@@ -293,3 +304,4 @@ const Packet = @import("Packet.zig");
 const std = @import("std");
 const log = std.log.scoped(.mqtt);
 const AnyWriter = std.io.AnyWriter;
+const AnyReader = std.io.AnyReader;

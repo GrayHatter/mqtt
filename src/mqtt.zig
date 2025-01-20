@@ -2,6 +2,8 @@
 //! https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
 //! At least the parts that make sense
 
+pub const Client = @import("Client.zig");
+
 pub const Packet = @import("Packet.zig");
 pub const Publish = @import("Publish.zig");
 pub const Connect = @import("Connect.zig");

@@ -32,7 +32,7 @@ pub const ControlType = enum(u4) {
     DISCONNECT = 14,
     AUTH = 15,
 
-    const Flags = packed struct(u4) {
+    pub const Flags = packed struct(u4) {
         retain: bool = false,
         qos: QOS = .at_most_once,
         dup: bool = false,
@@ -54,6 +54,55 @@ pub const QOS = enum(u2) {
     exactly_once = 2,
     invalid = 3,
 };
+
+// TODO find better name
+pub const Header = struct {
+    header: FixedHeader,
+    length: usize,
+};
+
+// TODO find better name
+pub const Parsed = union(ControlType) {
+    reserved: void,
+    CONNECT: Connect,
+    CONNACK: Connect.Ack,
+    PUBLISH: Publish,
+    PUBACK: Publish.Ack,
+    PUBREC: void,
+    PUBREL: void,
+    PUBCOMP: void,
+    SUBSCRIBE: Subscribe,
+    SUBACK: Subscribe.Ack,
+    UNSUBSCRIBE: void,
+    UNSUBACK: void,
+    PINGREQ: void,
+    PINGRESP: void,
+    DISCONNECT: void,
+    AUTH: void,
+};
+
+pub fn parse(header: FixedHeader, payload: []const u8) !Parsed {
+    var fbs = std.io.fixedBufferStream(payload);
+    var fbsr = fbs.reader();
+    var r = fbsr.any();
+    switch (header.kind) {
+        .CONNECT => return .{ .CONNECT = try Connect.parse(&r) },
+        .CONNACK => return .{ .CONNACK = try Connect.Ack.parse(payload) },
+        .PUBLISH => return .{ .PUBLISH = try Publish.parse(payload, header.flags) },
+        .PUBACK => return .{ .PUBACK = try Publish.Ack.parse(&r) },
+        .SUBSCRIBE => return .{ .SUBSCRIBE = try Subscribe.parse(&r) },
+        .SUBACK => return .{ .SUBACK = try Subscribe.Ack.parse(&r) },
+        .PUBREC, .PUBREL, .PUBCOMP, .UNSUBSCRIBE, .UNSUBACK, .PINGREQ, .PINGRESP, .DISCONNECT, .AUTH => {
+            log.err("not implemented parser for {}", .{header.kind});
+            @panic("not implemented");
+        },
+        else => |els| {
+            log.err("not implemented parser for {}", .{els});
+            unreachable;
+        },
+    }
+    unreachable;
+}
 
 pub fn send(p: Packet, any: *AnyWriter) !void {
     try any.writeByte(@bitCast(p.header));
@@ -114,6 +163,10 @@ test unpackVarInt {
     try std.testing.expectEqual(fbs.pos, 2);
     try std.testing.expectEqual(result, 129);
 }
+
+const Publish = @import("Publish.zig");
+const Connect = @import("Connect.zig");
+const Subscribe = @import("Subscribe.zig");
 
 const std = @import("std");
 const log = std.log.scoped(.mqtt);
