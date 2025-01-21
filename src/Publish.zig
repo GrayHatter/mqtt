@@ -6,6 +6,7 @@ packet_ident: ?u16,
 //The length of the Properties in the PUBLISH packet Variable Header encoded as a Variable Byte Integer.
 properties: []const u8,
 payload: []const u8,
+ack_required: bool = false,
 
 const Publish = @This();
 
@@ -151,22 +152,21 @@ pub const Properties = enum(u8) {
 pub fn parse(publ: []const u8, flags: Packet.ControlType.Flags) !Publish {
     var fbs = std.io.fixedBufferStream(publ);
     var r = fbs.reader();
-    log.err("{s} <> {any}", .{ publ, publ });
     const slen = try r.readInt(u16, .big);
     const topic = publ[2..][0..slen];
     try fbs.seekBy(slen);
     var pktid: ?u16 = null;
+    var ack_required = false;
     switch (flags.qos) {
-        .at_most_once => {
-            log.err("     expecting {s}", .{"nop"});
-        },
+        .at_most_once => {},
         .at_least_once => {
             log.err("     expecting {s}", .{"PUBACK"});
+            ack_required = true;
             pktid = try r.readInt(u16, .big);
-            //try Publish.Ack.send(pktid.?, .success, &any);
         },
         .exactly_once => {
-            log.err("     expecting {s}", .{"PUBREC"});
+            log.err("     expecting {s} (not implemented)", .{"PUBREC"});
+            ack_required = true;
         },
         .invalid => @panic("unreachable"),
     }
@@ -178,6 +178,7 @@ pub fn parse(publ: []const u8, flags: Packet.ControlType.Flags) !Publish {
         .packet_ident = pktid,
         .properties = props,
         .payload = publ[fbs.pos..],
+        .ack_required = ack_required,
     };
 }
 

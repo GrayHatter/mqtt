@@ -75,8 +75,8 @@ pub const Parsed = union(ControlType) {
     SUBACK: Subscribe.Ack,
     UNSUBSCRIBE: void,
     UNSUBACK: void,
-    PINGREQ: void,
-    PINGRESP: void,
+    PINGREQ: Ping.Req,
+    PINGRESP: Ping.Resp,
     DISCONNECT: void,
     AUTH: void,
 };
@@ -92,7 +92,9 @@ pub fn parse(header: FixedHeader, payload: []const u8) !Parsed {
         .PUBACK => return .{ .PUBACK = try Publish.Ack.parse(&r) },
         .SUBSCRIBE => return .{ .SUBSCRIBE = try Subscribe.parse(&r) },
         .SUBACK => return .{ .SUBACK = try Subscribe.Ack.parse(&r) },
-        .PUBREC, .PUBREL, .PUBCOMP, .UNSUBSCRIBE, .UNSUBACK, .PINGREQ, .PINGRESP, .DISCONNECT, .AUTH => {
+        .PINGREQ => return .{ .PINGREQ = try Ping.Req.parse(payload) },
+        .PINGRESP => return .{ .PINGRESP = try Ping.Resp.parse(payload) },
+        .PUBREC, .PUBREL, .PUBCOMP, .UNSUBSCRIBE, .UNSUBACK, .DISCONNECT, .AUTH => {
             log.err("not implemented parser for {}", .{header.kind});
             @panic("not implemented");
         },
@@ -116,7 +118,7 @@ pub fn writeVarInt(requested: usize, any: *AnyWriter) !usize {
     var written: usize = 0;
     var len = requested;
     if (len > 0xffffff7f) return error.PayloadTooLarge;
-    while (len > 0) {
+    while (written == 0 or len > 0) {
         const byte: u8 = @truncate(len & 0x7f);
         len >>= 7;
         try any.writeByte(byte | if (len > 0) 0x80 else @as(u8, 0x00));
@@ -167,6 +169,7 @@ test unpackVarInt {
 const Publish = @import("Publish.zig");
 const Connect = @import("Connect.zig");
 const Subscribe = @import("Subscribe.zig");
+const Ping = @import("Ping.zig");
 
 const std = @import("std");
 const log = std.log.scoped(.mqtt);
