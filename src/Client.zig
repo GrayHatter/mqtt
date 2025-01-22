@@ -79,12 +79,12 @@ pub fn recv(c: *Client) !Packet.Parsed {
         c.drop = 0;
         ready = fifo.readableLength();
     }
-    var poll_more = if (ready < 2) try c.poller.poll() else true;
+    var poll_more = ready >= 2 or try c.poller.poll();
     while (poll_more) {
         ready = fifo.readableLength();
         try c.heartbeat();
 
-        if (ready < 4) {
+        if (ready < 2) {
             poll_more = try c.poller.poll();
             continue;
         }
@@ -97,6 +97,13 @@ pub fn recv(c: *Client) !Packet.Parsed {
             log.err("    getting more data... {}/{}", .{ ready, reported });
             poll_more = try c.poller.poll();
             ready = fifo.readableLength();
+        }
+        if (ready < reported and !poll_more) {
+            log.err("Unable to keep polling, and not enough data received", .{});
+            log.err("header {any}", .{pkt});
+            log.err("amount {} / {}", .{ reported, ready });
+            log.err("data available {any}", .{fifo.readableSliceOfLen(fifo.readableLength())});
+            return error.StreamCrashed;
         }
         const payload = fifo.readableSliceOfLen(reported);
         c.drop = reported;
