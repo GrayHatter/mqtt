@@ -5,28 +5,28 @@ pub fn build(b: *std.Build) void {
 
     const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
-        .name = "mqtt",
-        .root_source_file = b.path("src/main.zig"),
+    const mqtt = b.addModule("mqtt", .{
+        .root_source_file = b.path("src/mqtt.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    b.installArtifact(exe);
+    _ = mqtt;
 
-    const run_cmd = b.addRunArtifact(exe);
+    // Restore when server works
+    //b.installArtifact(mqtt);
+    //const run_cmd = b.addRunArtifact(mqtt);
+    //run_cmd.step.dependOn(b.getInstallStep());
 
-    run_cmd.step.dependOn(b.getInstallStep());
+    //if (b.args) |args| {
+    //    run_cmd.addArgs(args);
+    //}
 
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
-
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    //const run_step = b.step("run", "Run the app");
+    //run_step.dependOn(&run_cmd.step);
 
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/mqtt.zig"),
         .target = target,
         .optimize = optimize,
     });
