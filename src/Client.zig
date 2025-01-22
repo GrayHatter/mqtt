@@ -53,16 +53,17 @@ pub fn heartbeat(c: *Client) !void {
 pub fn recv(c: *Client) !Packet.Parsed {
     var fifo = c.poller.fifo(.srv);
     var ready = fifo.readableLength();
-    if (c.drop > 0 and ready >= c.drop) {
+    if (c.drop > 0) {
         fifo.discard(c.drop);
         c.drop = 0;
-    }
-    var poll_more = try c.poller.poll();
-    while (poll_more) {
-        try c.heartbeat();
         ready = fifo.readableLength();
+    }
+    var poll_more = if (ready < 2) try c.poller.poll() else true;
+    while (poll_more) {
+        ready = fifo.readableLength();
+        try c.heartbeat();
 
-        if (ready < 6) {
+        if (ready < 4) {
             poll_more = try c.poller.poll();
             continue;
         }
@@ -77,7 +78,6 @@ pub fn recv(c: *Client) !Packet.Parsed {
             ready = fifo.readableLength();
         }
         const payload = fifo.readableSliceOfLen(reported);
-
         c.drop = reported;
         return try Packet.parse(pkt, payload);
     }
