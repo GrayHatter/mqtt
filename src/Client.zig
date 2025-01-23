@@ -93,17 +93,17 @@ pub fn recv(c: *Client) !Packet.Parsed {
         var fr = fifo.reader();
         var r = fr.any();
         const reported = try Packet.unpackVarInt(&r);
-        while (ready < reported and poll_more) {
+        while (ready < reported) {
             log.err("    getting more data... {}/{}", .{ ready, reported });
             poll_more = try c.poller.poll();
+            if (!poll_more) {
+                log.err("Unable to keep polling, and not enough data received", .{});
+                log.err("header {any}", .{pkt});
+                log.err("amount {} / {}", .{ reported, ready });
+                log.err("data available {any}", .{fifo.readableSliceOfLen(fifo.readableLength())});
+                return error.StreamCrashed;
+            }
             ready = fifo.readableLength();
-        }
-        if (ready < reported and !poll_more) {
-            log.err("Unable to keep polling, and not enough data received", .{});
-            log.err("header {any}", .{pkt});
-            log.err("amount {} / {}", .{ reported, ready });
-            log.err("data available {any}", .{fifo.readableSliceOfLen(fifo.readableLength())});
-            return error.StreamCrashed;
         }
         const payload = fifo.readableSliceOfLen(reported);
         c.drop = reported;
