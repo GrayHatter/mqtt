@@ -4,7 +4,7 @@
 
 const mqtt = @import("mqtt.zig");
 
-pub fn main() !void {
+pub fn client() !void {
     log.err("startup", .{});
     const a = std.heap.page_allocator;
 

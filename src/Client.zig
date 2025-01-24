@@ -93,6 +93,7 @@ pub fn recv(c: *Client) !Packet.Parsed {
         var fr = fifo.reader();
         var r = fr.any();
         const reported = try Packet.unpackVarInt(&r);
+        ready = fifo.readableLength();
         while (ready < reported) {
             log.err("    getting more data... {}/{}", .{ ready, reported });
             poll_more = try c.poller.poll();
