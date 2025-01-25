@@ -1,14 +1,15 @@
 client_id: ?[]const u8 = null,
 flags: Flags = .{},
 keep_alive: KeepAlive = .{},
+properties: []Properties = &[0]Properties{},
 
 const Connect = @This();
 
 pub const MQTT_VERSION = 5;
 
 pub const Flags = packed struct(u8) {
+    // 3.1.2.4 requires LSB to be 0
     reserved: bool = false,
-    // 3.1.2.4 requires this be 0
     clean_start: bool = true,
     will_flag: bool = false,
     will_qos: u2 = 0,
@@ -27,30 +28,203 @@ pub fn parse(r: *AnyReader) !Connect {
 }
 
 pub fn send(c: Connect, any: *AnyWriter) !void {
-    const props = [_]u8{ 0x11, 0x00, 0x00, 0x00, 0x03 };
+    const props = [_]u8{
+        @intFromEnum(Properties.session_expiry_interval), 0x00,
+        0x00,                                             0x00,
+        0x03,
+    };
     const client_id: []const u8 = c.client_id orelse
         "generic_mqtt_client";
 
     var buffer: [0x80]u8 = undefined;
-    var fbs =
-        std.io.fixedBufferStream(&buffer);
-    var w = fbs.writer();
+    var fbs = std.io.fixedBufferStream(&buffer);
+    var fbw = fbs.writer();
+    var w = fbw.any();
 
     try w.writeInt(u16, 4, .big);
     try w.writeAll("MQTT");
     try w.writeByte(MQTT_VERSION);
     try w.writeByte(@bitCast(c.flags));
     try w.writeInt(u16, @bitCast(c.keep_alive), .big);
-    try w.writeByte(@intCast(props.len));
+    _ = try Packet.writeVarInt(@intCast(props.len), &w);
     try w.writeAll(&props);
     try w.writeInt(u16, @intCast(client_id.len), .big);
     try w.writeAll(client_id);
 
     const pkt: Packet = .{ .header = .{ .kind = .CONNECT }, .body = fbs.getWritten() };
 
-    log.warn("writing connect packet", .{});
+    log.debug("writing connect packet", .{});
     try pkt.send(any);
 }
+
+pub const Properties = enum(u8) {
+    session_expiry_interval = 17,
+    //Followed by the Four Byte Integer representing the Session Expiry
+    //Interval in seconds. It is a Protocol Error to include the Session
+    //Expiry Interval more than once.
+    //
+    //If the Session Expiry Interval is absent the value 0 is used. If it is
+    //set to 0, or is absent, the Session ends when the Network Connection is
+    //closed.
+    //
+    //If the Session Expiry Interval is 0xFFFFFFFF (UINT_MAX), the Session
+    //does not expire.
+    //
+    //The Client and Server MUST store the Session State after the Network
+    //Connection is closed if the Session Expiry Interval is greater than 0
+    //[MQTT-3.1.2-23].
+    //
+    //Non-normative comment
+    //
+    //Setting Clean Start to 1 and a Session Expiry Interval of 0, is
+    //equivalent to setting CleanSession to 1 in the MQTT Specification
+    //Version 3.1.1. Setting Clean Start to 0 and no Session Expiry
+    //Interval, is equivalent to setting CleanSession to 0 in the MQTT
+    //Specification Version 3.1.1.
+    //
+    //Non-normative comment
+    //
+    //A Client that only wants to process messages while connected will
+    //set the Clean Start to 1 and set the Session Expiry Interval to 0.
+    //It will not receive Application Messages published before it
+    //connected and has to subscribe afresh to any topics that it is
+    //interested in each time it connects.
+
+    receive_maximum = 33,
+    //Followed by the Two Byte Integer representing the Receive Maximum
+    //value. It is a Protocol Error to include the Receive Maximum value
+    //more than once or for it to have the value 0.
+    //
+    //The Client uses this value to limit the number of QoS 1 and QoS 2
+    //publications that it is willing to process concurrently. There is no
+    //mechanism to limit the QoS 0 publications that the Server might try
+    //to send.
+
+    maximum_packet_size = 39,
+    //Followed by a Four Byte Integer representing the Maximum Packet Size
+    //the Client is willing to accept. If the Maximum Packet Size is not
+    //present, no limit on the packet size is imposed beyond the
+    //limitations in the protocol as a result of the remaining length
+    //encoding and the protocol header sizes.
+    //It is a Protocol Error to include the Maximum Packet Size more than
+    //once, or for the value to be set to zero.
+    //
+    //The packet size is the total number of bytes in an MQTT Control
+    //Packet, as defined in section 2.1.4. The Client uses the Maximum
+    //Packet Size to inform the Server that it will not process packets
+    //exceeding this limit.
+    //
+    //The Server MUST NOT send packets exceeding Maximum Packet Size to
+    //the Client [MQTT-3.1.2-24]. If a Client receives a packet whose size
+    //exceeds this limit, this is a Protocol Error, the Client uses
+    //DISCONNECT with Reason Code 0x95 (Packet too large), as described in
+    //section 4.13.
+
+    //Where a Packet is too large to send, the Server MUST discard it
+    //without sending it and then behave as if it had completed sending
+    //that Application Message [MQTT-3.1.2-25].
+    // <gr.ht> LMAO wtf is this protocol?!
+
+    //Non-normative comment
+    //Where a packet is discarded without being sent, the Server could
+    //place the discarded packet on a ‘dead letter queue’ or perform other
+    //diagnostic action. Such actions are outside the scope of this
+    //specification.
+
+    topic_alias_maximum = 34,
+    //Followed by the Two Byte Integer representing the Topic Alias
+    //Maximum value. It is a Protocol Error to include the Topic Alias
+    //Maximum value more than once. If the Topic Alias Maximum property is
+    //absent, the default value is 0.
+    //
+    //This value indicates the highest value that the Client will accept
+    //as a Topic Alias sent by the Server. The Client uses this value to
+    //limit the number of Topic Aliases that it is willing to hold on this
+    //Connection. The Server MUST NOT send a Topic Alias in a PUBLISH
+    //packet to the Client greater than Topic Alias Maximum
+    //[MQTT-3.1.2-26]. A value of 0 indicates that the Client does not
+    //accept any Topic Aliases on this connection. If Topic Alias Maximum
+    //is absent or zero, the Server MUST NOT send any Topic Aliases to
+    //the Client [MQTT-3.1.2-27].
+
+    request_response_information = 25,
+    //Followed by a Byte with a value of either 0 or 1. It is Protocol
+    //Error to include the Request Response Information more than
+    //once, or to have a value other than 0 or 1. If the Request
+    //Response Information is absent, the value of 0 is used.
+    //
+    //The Client uses this value to request the Server to return
+    //Response Information in the CONNACK. A value of 0 indicates that
+    //the Server MUST NOT return Response Information [MQTT-3.1.2-28].
+    //If the value is 1 the Server MAY return Response Information in
+    //the CONNACK packet.
+    //
+    //Non-normative comment
+    //
+    //The Server can choose not to include Response Information in the
+    //CONNACK, even if the Client requested it.
+    //
+    //Refer to section 4.10 for more information about Request /
+    //Response.
+
+    request_problem_information = 23,
+    //Followed by a Byte with a value of either 0 or 1. It is a
+    //Protocol Error to include Request Problem Information more than
+    //once, or to have a value other than 0 or 1. If the Request
+    //Problem Information is absent, the value of 1 is used.
+    //
+    //The Client uses this value to indicate whether the Reason String
+    //or User Properties are sent in the case of failures.
+    //
+    //If the value of Request Problem Information is 0, the Server MAY
+    //return a Reason String or User Properties on a CONNACK or
+    //DISCONNECT packet, but MUST NOT send a Reason String or User
+    //Properties on any packet other than PUBLISH, CONNACK, or
+    //DISCONNECT [MQTT-3.1.2-29]. If the value is 0 and the Client
+    //receives a Reason String or User Properties in a packet other
+    //than PUBLISH, CONNACK, or DISCONNECT, it uses a DISCONNECT
+    //packet with Reason Code 0x82 (Protocol Error) as described in
+    //section 4.13 Handling errors.
+    //
+    //If this value is 1, the Server MAY return a Reason String or
+    //User Properties on any packet where it is allowed.
+
+    user_property = 38,
+    //Followed by a UTF-8 String Pair.
+    //
+    //The User Property is allowed to appear multiple times to
+    //represent multiple name, value pairs. The same name is allowed
+    //to appear more than once.
+    //
+    //Non-normative comment
+    //
+    //User Properties on the CONNECT packet can be used to send
+    //connection related properties from the Client to the Server. The
+    //meaning of these properties is not defined by this
+    //specification.
+
+    authentication_method = 21,
+    //Followed by a UTF-8 Encoded String containing the name of the
+    //authentication method used for extended authentication .It is a
+    //Protocol Error to include Authentication Method more than once.
+    //
+    //If Authentication Method is absent, extended authentication is
+    //not performed. Refer to section 4.12.
+    //
+    //If a Client sets an Authentication Method in the CONNECT, the
+    //Client MUST NOT send any packets other than AUTH or DISCONNECT
+    //packets until it has received a CONNACK packet [MQTT-3.1.2-30].
+
+    authentication_data = 22,
+    //Followed by Binary Data containing authentication data. It is a
+    //Protocol Error to include Authentication Data if there is no
+    //Authentication Method. It is a Protocol Error to include
+    //Authentication Data more than once.
+    //
+    //The contents of this data are defined by the authentication
+    //method. Refer to section 4.12 for more information about
+    //extended authentication.
+};
 
 pub const Ack = struct {
     pub const Properties = enum(u8) {
@@ -298,6 +472,25 @@ pub const Ack = struct {
         return .{};
     }
 };
+
+test Connect {
+    const c = Connect{};
+    var buffer: [0xffff]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buffer);
+    var writer = fbs.writer();
+    var any = writer.any();
+
+    try c.send(&any);
+
+    try std.testing.expectEqual(fbs.pos, 39);
+    try std.testing.expectEqualSlices(u8, fbs.getWritten(), &[_]u8{
+        @bitCast(Packet.FixedHeader.CONNECT),
+    } ++ [_]u8{
+        37, 0,   4,   77,  81,  84, 84,  5,   2,   2,   88,  5,   17,
+        0,  0,   0,   3,   0,   19, 103, 101, 110, 101, 114, 105, 99,
+        95, 109, 113, 116, 116, 95, 99,  108, 105, 101, 110, 116,
+    });
+}
 
 const Packet = @import("Packet.zig");
 

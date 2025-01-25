@@ -12,6 +12,8 @@ const Packet = @This();
 pub const FixedHeader = packed struct(u8) {
     flags: ControlType.Flags = .{},
     kind: ControlType,
+
+    pub const CONNECT = FixedHeader{ .kind = .CONNECT };
 };
 
 pub const ControlType = enum(u4) {
@@ -110,8 +112,8 @@ pub fn send(p: Packet, any: *AnyWriter) !void {
     try any.writeByte(@bitCast(p.header));
     _ = try writeVarInt(p.body.len, any);
     try any.writeAll(p.body);
-    log.err("debug: {s}", .{p.body});
-    log.err("debug: {any}", .{p.body});
+    log.debug("send packet str: {s}", .{p.body});
+    log.debug("send packet bytes: {any}", .{p.body});
 }
 
 pub fn writeVarInt(requested: usize, any: *AnyWriter) !usize {

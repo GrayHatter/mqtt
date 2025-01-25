@@ -1,19 +1,19 @@
 # MQTT 5 Client & Server
 
  - [ ] Client
-   - [ ] CONNECT
-   - [ ] CONNACK
-   - [ ] PUBLISH
+   - [x] CONNECT
+   - [x] CONNACK
+   - [x] PUBLISH
    - [ ] PUBACK
    - [ ] PUBREC
    - [ ] PUBREL
    - [ ] PUBCOMP
-   - [ ] SUBSCRIBE
+   - [x] SUBSCRIBE
    - [ ] SUBACK
    - [ ] UNSUBSCRIBE
    - [ ] UNSUBACK
-   - [ ] PINGREQ
-   - [ ] PINGRESP
+   - [x] PINGREQ
+   - [x] PINGRESP
    - [ ] DISCONNECT
    - [ ] AUTH
 
