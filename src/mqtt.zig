@@ -3,6 +3,7 @@
 //! At least the parts that make sense
 
 pub const Client = @import("Client.zig");
+pub const Server = @import("Server.zig");
 
 pub const Packet = @import("Packet.zig");
 pub const Publish = @import("Publish.zig");
