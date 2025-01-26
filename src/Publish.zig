@@ -197,7 +197,7 @@ pub fn send(p: Publish, any: *AnyWriter) !void {
 
     const pkt: Packet = .{
         .header = .{
-            .kind = .PUBLISH,
+            .kind = .publish,
             .flags = .{ .qos = if (p.packet_ident != null) .at_least_once else .at_most_once },
         },
         .body = fbs.getWritten(),
@@ -234,10 +234,27 @@ pub const Ack = struct {
         try w.writeByte(@intFromEnum(code));
         try w.writeByte(0); //property length;
 
-        const pkt: Packet = .{ .header = .{ .kind = .PUBACK }, .body = fbs.getWritten() };
+        const pkt: Packet = .{ .header = .{ .kind = .puback }, .body = fbs.getWritten() };
         try pkt.send(any);
     }
 };
+
+test Publish {
+    const c = Publish{
+        .topic_name = "publish",
+        .packet_ident = null,
+        .properties = &[0]u8{},
+        .payload = &[0]u8{},
+    };
+    var buffer: [0xffff]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buffer);
+    var writer = fbs.writer();
+    var any = writer.any();
+
+    try c.send(&any);
+
+    try std.testing.expectEqual(fbs.pos, 12);
+}
 
 const Packet = @import("Packet.zig");
 
