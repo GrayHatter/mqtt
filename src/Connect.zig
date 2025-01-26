@@ -51,7 +51,7 @@ pub fn send(c: Connect, any: *AnyWriter) !void {
     try w.writeInt(u16, @intCast(client_id.len), .big);
     try w.writeAll(client_id);
 
-    const pkt: Packet = .{ .header = .{ .kind = .CONNECT }, .body = fbs.getWritten() };
+    const pkt: Packet = .{ .header = .{ .kind = .connect }, .body = fbs.getWritten() };
 
     log.debug("writing connect packet", .{});
     try pkt.send(any);

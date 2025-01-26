@@ -13,44 +13,45 @@ pub const FixedHeader = packed struct(u8) {
     flags: ControlType.Flags = .{},
     kind: ControlType,
 
-    pub const CONNECT = FixedHeader{ .kind = .CONNECT };
+    pub const CONNECT = FixedHeader{ .kind = .connect };
 };
 
 pub const ControlType = enum(u4) {
     reserved = 0,
-    CONNECT = 1,
-    CONNACK = 2,
-    PUBLISH = 3,
-    PUBACK = 4,
-    PUBREC = 5,
-    PUBREL = 6,
-    PUBCOMP = 7,
-    SUBSCRIBE = 8,
-    SUBACK = 9,
-    UNSUBSCRIBE = 10,
-    UNSUBACK = 11,
-    PINGREQ = 12,
-    PINGRESP = 13,
-    DISCONNECT = 14,
-    AUTH = 15,
+    connect = 1,
+    connack = 2,
+    publish = 3,
+    puback = 4,
+    pubrec = 5,
+    pubrel = 6,
+    pubcomp = 7,
+    subscribe = 8,
+    suback = 9,
+    unsubscribe = 10,
+    unsuback = 11,
+    pingreq = 12,
+    pingresp = 13,
+    disconnect = 14,
+    auth = 15,
 
     pub const Flags = packed struct(u4) {
         retain: bool = false,
-        qos: QOS = .at_most_once,
+        qos: Qos = .at_most_once,
         dup: bool = false,
     };
-    /// MQTT 5.0 -- 2.1.3
-    pub fn flags(cpt: ControlType) !Flags {
+
+    /// mqtt 5.0 -- 2.1.3
+    pub fn flags(cpt: ControlType) !flags {
         return switch (cpt) {
-            .reserved => error.InvalidCPT,
-            .CONNECT, .CONNACK, .PUBLISH, .PUBACK, .PUBREC, .PUBCOMP => .{},
-            .SUBACK, .UNSUBACK, .PINGREQ, .PINGRESP, .DISCONNECT, .AUTH => .{},
-            .PUBREL, .SUBSCRIBE, .UNSUBSCRIBE => .{ .qos = .at_least_once },
+            .reserved => error.Invalidcpt,
+            .connect, .connack, .publish, .puback, .pubrec, .pubcomp => .{},
+            .suback, .unsuback, .pingreq, .pingresp, .disconnect, .auth => .{},
+            .pubrel, .subscribe, .unsubscribe => .{ .qos = .at_least_once },
         };
     }
 };
 
-pub const QOS = enum(u2) {
+pub const Qos = enum(u2) {
     at_most_once = 0,
     at_least_once = 1,
     exactly_once = 2,
@@ -66,21 +67,21 @@ pub const Header = struct {
 // TODO find better name
 pub const Parsed = union(ControlType) {
     reserved: void,
-    CONNECT: Connect,
-    CONNACK: Connect.Ack,
-    PUBLISH: Publish,
-    PUBACK: Publish.Ack,
-    PUBREC: void,
-    PUBREL: void,
-    PUBCOMP: void,
-    SUBSCRIBE: Subscribe,
-    SUBACK: Subscribe.Ack,
-    UNSUBSCRIBE: void,
-    UNSUBACK: void,
-    PINGREQ: Ping.Req,
-    PINGRESP: Ping.Resp,
-    DISCONNECT: void,
-    AUTH: void,
+    connect: Connect,
+    connack: Connect.Ack,
+    publish: Publish,
+    puback: Publish.Ack,
+    pubrec: void,
+    pubrel: void,
+    pubcomp: void,
+    subscribe: Subscribe,
+    suback: Subscribe.Ack,
+    unsubscribe: void,
+    unsuback: void,
+    pingreq: Ping.Req,
+    pingresp: Ping.Resp,
+    disconnect: void,
+    auth: void,
 };
 
 pub fn parse(header: FixedHeader, payload: []const u8) !Parsed {
@@ -88,15 +89,15 @@ pub fn parse(header: FixedHeader, payload: []const u8) !Parsed {
     var fbsr = fbs.reader();
     var r = fbsr.any();
     switch (header.kind) {
-        .CONNECT => return .{ .CONNECT = try Connect.parse(&r) },
-        .CONNACK => return .{ .CONNACK = try Connect.Ack.parse(&r) },
-        .PUBLISH => return .{ .PUBLISH = try Publish.parse(payload, header.flags) },
-        .PUBACK => return .{ .PUBACK = try Publish.Ack.parse(&r) },
-        .SUBSCRIBE => return .{ .SUBSCRIBE = try Subscribe.parse(&r) },
-        .SUBACK => return .{ .SUBACK = try Subscribe.Ack.parse(&r) },
-        .PINGREQ => return .{ .PINGREQ = try Ping.Req.parse(payload) },
-        .PINGRESP => return .{ .PINGRESP = try Ping.Resp.parse(payload) },
-        .PUBREC, .PUBREL, .PUBCOMP, .UNSUBSCRIBE, .UNSUBACK, .DISCONNECT, .AUTH => {
+        .connect => return .{ .connect = try Connect.parse(&r) },
+        .connack => return .{ .connack = try Connect.Ack.parse(&r) },
+        .publish => return .{ .publish = try Publish.parse(payload, header.flags) },
+        .puback => return .{ .puback = try Publish.Ack.parse(&r) },
+        .subscribe => return .{ .subscribe = try Subscribe.parse(&r) },
+        .suback => return .{ .suback = try Subscribe.Ack.parse(&r) },
+        .pingreq => return .{ .pingreq = try Ping.Req.parse(payload) },
+        .pingresp => return .{ .pingresp = try Ping.Resp.parse(payload) },
+        .pubrec, .pubrel, .pubcomp, .unsubscribe, .unsuback, .disconnect, .auth => {
             log.err("not implemented parser for {}", .{header.kind});
             @panic("not implemented");
         },

@@ -51,7 +51,7 @@ pub fn connect(c: *Client) !bool {
     // grab the connack packet
     const pkt = try c.recv();
     switch (pkt) {
-        .CONNACK => {
+        .connack => {
             log.err("connack {any}", .{pkt});
             // handle connack, and record settings
             return true;

@@ -1,6 +1,6 @@
 pub const Req = struct {
     pub fn send(_: Req, any: *AnyWriter) !void {
-        return try (Packet{ .header = .{ .kind = .PINGREQ }, .body = &[0]u8{} }).send(any);
+        return try (Packet{ .header = .{ .kind = .pingreq }, .body = &[0]u8{} }).send(any);
     }
 
     pub fn parse(_: []const u8) !Req {
@@ -10,7 +10,7 @@ pub const Req = struct {
 
 pub const Resp = struct {
     pub fn send(_: Resp, any: *AnyWriter) !void {
-        return try (Packet{ .header = .{ .kind = .PINGRESP }, .body = &[0]u8{} }).send(any);
+        return try (Packet{ .header = .{ .kind = .pingresp }, .body = &[0]u8{} }).send(any);
     }
 
     pub fn parse(_: []const u8) !Resp {
