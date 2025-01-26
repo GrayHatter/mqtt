@@ -43,8 +43,8 @@ pub const ControlType = enum(u4) {
     pub fn flags(cpt: ControlType) !Flags {
         return switch (cpt) {
             .reserved => error.InvalidCPT,
-            .CONNECT, .CONNACK, .PUBLISH, .PUBACK, .PUBREC, .PUBCOMP, .SUBACK => .{},
-            .UNSUBACK, .PINGREQ, .PINGRESP, .DISCONNECT, .AUTH => .{},
+            .CONNECT, .CONNACK, .PUBLISH, .PUBACK, .PUBREC, .PUBCOMP => .{},
+            .SUBACK, .UNSUBACK, .PINGREQ, .PINGRESP, .DISCONNECT, .AUTH => .{},
             .PUBREL, .SUBSCRIBE, .UNSUBSCRIBE => .{ .qos = .at_least_once },
         };
     }
@@ -89,7 +89,7 @@ pub fn parse(header: FixedHeader, payload: []const u8) !Parsed {
     var r = fbsr.any();
     switch (header.kind) {
         .CONNECT => return .{ .CONNECT = try Connect.parse(&r) },
-        .CONNACK => return .{ .CONNACK = try Connect.Ack.parse(payload) },
+        .CONNACK => return .{ .CONNACK = try Connect.Ack.parse(&r) },
         .PUBLISH => return .{ .PUBLISH = try Publish.parse(payload, header.flags) },
         .PUBACK => return .{ .PUBACK = try Publish.Ack.parse(&r) },
         .SUBSCRIBE => return .{ .SUBSCRIBE = try Subscribe.parse(&r) },

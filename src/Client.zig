@@ -9,11 +9,18 @@ writer: std.net.Stream.Writer,
 drop: usize = 0,
 last_tx: usize = 0,
 heartbeat_interval: u16,
+srv_topic_aliases: ?[]Alias = null,
+cli_topic_aliases: ?[]Alias = null,
 
 pub const Client = @This();
 
 pub const Poller = std.io.Poller(PEnum);
 pub const PEnum = enum { srv };
+
+pub const Alias = struct {
+    num: u16,
+    alias: []const u8,
+};
 
 pub const Options = struct {
     heartbeat_interval: u16 = 3600,
@@ -45,6 +52,7 @@ pub fn connect(c: *Client) !bool {
     const pkt = try c.recv();
     switch (pkt) {
         .CONNACK => {
+            log.err("connack {any}", .{pkt});
             // handle connack, and record settings
             return true;
         },
