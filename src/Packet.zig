@@ -41,7 +41,7 @@ pub const ControlType = enum(u4) {
     };
 
     /// mqtt 5.0 -- 2.1.3
-    pub fn flags(cpt: ControlType) !flags {
+    pub fn flags(cpt: ControlType) !Flags {
         return switch (cpt) {
             .reserved => error.Invalidcpt,
             .connect, .connack, .publish, .puback, .pubrec, .pubcomp => .{},
