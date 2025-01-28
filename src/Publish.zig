@@ -3,7 +3,8 @@ topic_name: []const u8,
 //QoS level is 1 or 2. Section 2.2.1 provides more information about Packet
 //Identifiers.
 packet_ident: ?u16,
-//The length of the Properties in the PUBLISH packet Variable Header encoded as a Variable Byte Integer.
+//The length of the Properties in the PUBLISH packet Variable Header encoded as
+//a Variable Byte Integer.
 properties: []const u8,
 payload: []const u8,
 ack_required: bool = false,
