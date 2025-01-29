@@ -105,7 +105,7 @@ pub fn recv(c: *Client) !?Packet.Parsed {
         const pkt: Packet.FixedHeader = @bitCast(fifo.readItem().?);
         var fr = fifo.reader();
         var r = fr.any();
-        const reported = try Packet.unpackVarInt(&r);
+        const reported = try codec.readVarInt(&r);
         ready = fifo.readableLength();
         while (ready < reported) {
             log.err("    getting more data... {}/{}", .{ ready, reported });
@@ -135,6 +135,7 @@ const Publish = @import("Publish.zig");
 const Connect = @import("Connect.zig");
 const Subscribe = @import("Subscribe.zig");
 const Ping = @import("Ping.zig");
+const codec = @import("codec.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;

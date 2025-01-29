@@ -9,9 +9,18 @@ pub const Packet = @import("Packet.zig");
 pub const Publish = @import("Publish.zig");
 pub const Connect = @import("Connect.zig");
 pub const Subscribe = @import("Subscribe.zig");
+pub const Disconnect = @import("Disconnect.zig");
 
 const mqtt = @This();
 
 test mqtt {
+    _ = &Client;
+    _ = &Server;
+    _ = &Packet;
+    _ = &Publish;
+    _ = &Connect;
+    _ = &Subscribe;
+    _ = &Disconnect;
+
     @import("std").testing.refAllDecls(mqtt);
 }

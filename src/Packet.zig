@@ -80,7 +80,7 @@ pub const Parsed = union(ControlType) {
     unsuback: void,
     pingreq: Ping.Req,
     pingresp: Ping.Resp,
-    disconnect: void,
+    disconnect: Disconnect,
     auth: void,
 };
 
@@ -97,7 +97,8 @@ pub fn parse(header: FixedHeader, payload: []const u8) !Parsed {
         .suback => return .{ .suback = try Subscribe.Ack.parse(&r) },
         .pingreq => return .{ .pingreq = try Ping.Req.parse(payload) },
         .pingresp => return .{ .pingresp = try Ping.Resp.parse(payload) },
-        .pubrec, .pubrel, .pubcomp, .unsubscribe, .unsuback, .disconnect, .auth => {
+        .disconnect => return .{ .disconnect = try Disconnect.parse(&r) },
+        .pubrec, .pubrel, .pubcomp, .unsubscribe, .unsuback, .auth => {
             log.err("not implemented parser for {}", .{header.kind});
             @panic("not implemented");
         },
@@ -117,62 +118,14 @@ pub fn send(p: Packet, any: *AnyWriter) !void {
     log.debug("send packet bytes: {any}", .{p.body});
 }
 
-pub fn writeVarInt(requested: usize, any: *AnyWriter) !usize {
-    var written: usize = 0;
-    var len = requested;
-    if (len > 0xffffff7f) return error.PayloadTooLarge;
-    while (written == 0 or len > 0) {
-        const byte: u8 = @truncate(len & 0x7f);
-        len >>= 7;
-        try any.writeByte(byte | if (len > 0) 0x80 else @as(u8, 0x00));
-        written += 1;
-    }
-    return written;
-}
-
-pub fn unpackVarInt(any: *AnyReader) !usize {
-    var current: u8 = try any.readByte();
-    var result: usize = current & 127;
-    var mult: usize = 128;
-    while (current > 127) {
-        current = try any.readByte();
-        result += @as(usize, (current & 127)) * mult;
-        mult *= 128;
-        if (mult > 128 * 128 * 128) return error.InvalidIntSize;
-    }
-
-    return result;
-}
-
-test unpackVarInt {
-    var buffer = [_]u8{ 0, 0, 0, 0 };
-    var fbs = std.io.fixedBufferStream(&buffer);
-    var r = fbs.reader().any();
-
-    var result = unpackVarInt(&r);
-    try std.testing.expectEqual(fbs.pos, 1);
-    try std.testing.expectEqual(result, 0);
-    fbs.reset();
-    buffer = [4]u8{ 127, 0, 0, 0 };
-    result = unpackVarInt(&r);
-    try std.testing.expectEqual(fbs.pos, 1);
-    try std.testing.expectEqual(result, 127);
-    fbs.reset();
-    buffer = [4]u8{ 128, 1, 0, 0 };
-    result = unpackVarInt(&r);
-    try std.testing.expectEqual(fbs.pos, 2);
-    try std.testing.expectEqual(result, 128);
-    fbs.reset();
-    buffer = [4]u8{ 129, 1, 0, 0 };
-    result = unpackVarInt(&r);
-    try std.testing.expectEqual(fbs.pos, 2);
-    try std.testing.expectEqual(result, 129);
-}
-
 const Publish = @import("Publish.zig");
 const Connect = @import("Connect.zig");
 const Subscribe = @import("Subscribe.zig");
 const Ping = @import("Ping.zig");
+const Disconnect = @import("Disconnect.zig");
+const codec = @import("codec.zig");
+const writeVarInt = codec.writeVarInt;
+const readVarInt = codec.readVarInt;
 
 const std = @import("std");
 const log = std.log.scoped(.mqtt);

@@ -24,7 +24,7 @@ pub const KeepAlive = packed struct(u16) {
 
 pub fn parse(r: *AnyReader) !Connect {
     _ = r;
-    @panic("not implemented");
+    @panic("connect parse not implemented");
 }
 
 pub fn send(c: Connect, any: *AnyWriter) !void {
@@ -46,7 +46,7 @@ pub fn send(c: Connect, any: *AnyWriter) !void {
     try w.writeByte(MQTT_VERSION);
     try w.writeByte(@bitCast(c.flags));
     try w.writeInt(u16, @bitCast(c.keep_alive), .big);
-    _ = try Packet.writeVarInt(@intCast(props.len), &w);
+    _ = try codec.writeVarInt(@intCast(props.len), &w);
     try w.writeAll(&props);
     try w.writeInt(u16, @intCast(client_id.len), .big);
     try w.writeAll(client_id);
@@ -567,7 +567,7 @@ pub const Ack = struct {
             log.err("Connect Ack error {}", .{reason});
             return error.ConnectionRejected;
         }
-        const proplen = try Packet.unpackVarInt(r);
+        const proplen = try codec.readVarInt(r);
         const opts = try Property.parse(r, proplen);
 
         return .{
@@ -609,6 +609,7 @@ test Connect {
 }
 
 const Packet = @import("Packet.zig");
+const codec = @import("codec.zig");
 
 const std = @import("std");
 const log = std.log.scoped(.mqtt);
